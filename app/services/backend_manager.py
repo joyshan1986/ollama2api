@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import random
 import time
 from dataclasses import dataclass, field, asdict
@@ -28,6 +29,14 @@ class BackendInfo:
     created_at: float = field(default_factory=time.time)
     api_key: Optional[str] = None
     scheme: str = "http"
+
+    @property
+    def node_key(self) -> str:
+        base = f"{self.ip}:{self.port}"
+        if self.api_key:
+            suffix = hashlib.sha256(self.api_key.encode()).hexdigest()[:8]
+            return f"{base}@{suffix}"
+        return base
 
     @property
     def base_url(self) -> str:
@@ -113,13 +122,12 @@ class BackendManager:
                 ip = ip.strip()
                 if not ip:
                     continue
-                key = f"{ip}:{port}"
+                b = BackendInfo(ip=ip, port=port, api_key=api_key, scheme=scheme)
+                key = b.node_key
                 if key in self._backends:
                     skipped += 1
                     continue
-                self._backends[key] = BackendInfo(
-                    ip=ip, port=port, api_key=api_key, scheme=scheme
-                )
+                self._backends[key] = b
                 added += 1
         await self._save()
         logger.info(f"Batch add: {added} added, {skipped} skipped")

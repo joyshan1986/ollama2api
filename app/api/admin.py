@@ -655,12 +655,15 @@ async def test_backend(key: str, session=Depends(require_admin)):
     b = backend_manager.get_backend_by_key(key)
     if not b:
         return {"success": False, "error": "后端不存在"}
-    url = f"http://{key}/api/tags"
+    url = f"{b.base_url}/api/tags"
+    req_headers = {}
+    if b.api_key:
+        req_headers["Authorization"] = f"Bearer {b.api_key}"
     timeout = aiohttp.ClientTimeout(total=5, connect=3)
     try:
         t0 = time.time()
         async with aiohttp.ClientSession(timeout=timeout) as sess:
-            async with sess.get(url) as resp:
+            async with sess.get(url, headers=req_headers) as resp:
                 latency = round((time.time() - t0) * 1000)
                 if resp.status != 200:
                     return {"success": False, "error": f"HTTP {resp.status}", "latency_ms": latency}

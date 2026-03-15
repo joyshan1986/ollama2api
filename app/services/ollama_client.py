@@ -65,7 +65,7 @@ class OllamaClient:
             if not backend:
                 break
 
-            key = f"{backend.ip}:{backend.port}"
+            key = backend.node_key
             try:
                 if request.stream:
                     return OllamaClient._stream_chat(backend, request)
