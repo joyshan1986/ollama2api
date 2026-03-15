@@ -61,6 +61,8 @@ async def admin_page():
 class AddBackendsRequest(BaseModel):
     ips: str
     port: Optional[int] = None
+    api_key: Optional[str] = None
+    scheme: str = "http"
 
 
 class UpdateBackendRequest(BaseModel):
@@ -78,7 +80,9 @@ async def list_backends(session=Depends(require_admin)):
 @router.post("/admin/api/backends")
 async def add_backends(body: AddBackendsRequest, session=Depends(require_admin)):
     ips = [ip.strip() for ip in body.ips.replace(",", "\n").split("\n") if ip.strip()]
-    result = await backend_manager.add_backends_batch(ips, body.port)
+    result = await backend_manager.add_backends_batch(
+        ips, body.port, api_key=body.api_key, scheme=body.scheme
+    )
     return {"success": True, **result}
 
 
@@ -331,12 +335,15 @@ async def ai_chat(body: AIChatRequest, session=Depends(require_admin)):
 
     url = f"{backend.base_url}/v1/chat/completions"
     payload = {"model": backend.resolve_model(body.model), "messages": messages, "stream": True}
+    req_headers = {}
+    if backend.api_key:
+        req_headers["Authorization"] = f"Bearer {backend.api_key}"
 
     async def generate():
         timeout = aiohttp.ClientTimeout(total=settings.request_timeout, connect=settings.connect_timeout)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as sess:
-                async with sess.post(url, json=payload) as resp:
+                async with sess.post(url, json=payload, headers=req_headers) as resp:
                     if resp.status != 200:
                         text = await resp.text()
                         yield f"data: {json.dumps({'error': text[:200]})}\n\n"
@@ -555,12 +562,15 @@ async def ai_recommend(body: AIRecommendRequest, session=Depends(require_admin))
 
     url = f"{backend.base_url}/v1/chat/completions"
     payload = {"model": backend.resolve_model(body.model), "messages": messages, "stream": True}
+    req_headers = {}
+    if backend.api_key:
+        req_headers["Authorization"] = f"Bearer {backend.api_key}"
 
     async def generate():
         timeout = aiohttp.ClientTimeout(total=settings.request_timeout, connect=settings.connect_timeout)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as sess:
-                async with sess.post(url, json=payload) as resp:
+                async with sess.post(url, json=payload, headers=req_headers) as resp:
                     if resp.status != 200:
                         text = await resp.text()
                         yield f"data: {json.dumps({'error': text[:200]})}\n\n"

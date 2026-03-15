@@ -26,10 +26,12 @@ class BackendInfo:
     success_count: int = 0
     failed_models: List[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
+    api_key: Optional[str] = None
+    scheme: str = "http"
 
     @property
     def base_url(self) -> str:
-        return f"http://{self.ip}:{self.port}"
+        return f"{self.scheme}://{self.ip}:{self.port}"
 
     @property
     def is_available(self) -> bool:
@@ -101,7 +103,9 @@ class BackendManager:
                 return
         logger.warning("No hit_ips.txt found, starting with empty backend pool")
 
-    async def add_backends_batch(self, ips: List[str], port: int = None) -> dict:
+    async def add_backends_batch(self, ips: List[str], port: int = None,
+                                api_key: Optional[str] = None,
+                                scheme: str = "http") -> dict:
         port = port or settings.default_ollama_port
         added, skipped = 0, 0
         async with self._lock:
@@ -113,7 +117,9 @@ class BackendManager:
                 if key in self._backends:
                     skipped += 1
                     continue
-                self._backends[key] = BackendInfo(ip=ip, port=port)
+                self._backends[key] = BackendInfo(
+                    ip=ip, port=port, api_key=api_key, scheme=scheme
+                )
                 added += 1
         await self._save()
         logger.info(f"Batch add: {added} added, {skipped} skipped")

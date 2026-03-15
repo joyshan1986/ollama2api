@@ -118,6 +118,13 @@ class OllamaClient:
         return await proxy_manager.get_proxy_url()
 
     @staticmethod
+    def _build_headers(backend: BackendInfo) -> dict:
+        headers = {}
+        if backend.api_key:
+            headers["Authorization"] = f"Bearer {backend.api_key}"
+        return headers
+
+    @staticmethod
     async def _normal_chat(
         backend: BackendInfo, request: ChatCompletionRequest
     ) -> ChatCompletionResponse:
@@ -126,13 +133,14 @@ class OllamaClient:
         payload["stream"] = False
         payload["model"] = backend.resolve_model(request.model)
         proxy = await OllamaClient._get_proxy_url()
+        headers = OllamaClient._build_headers(backend)
 
         start = time.time()
         timeout = aiohttp.ClientTimeout(
             total=settings.request_timeout, connect=settings.connect_timeout
         )
         session = await OllamaClient._get_session()
-        async with session.post(url, json=payload, proxy=proxy, timeout=timeout) as resp:
+        async with session.post(url, json=payload, proxy=proxy, timeout=timeout, headers=headers) as resp:
             latency = (time.time() - start) * 1000
             if resp.status != 200:
                 text = await resp.text()
@@ -182,9 +190,10 @@ class OllamaClient:
         timeout = aiohttp.ClientTimeout(
             total=settings.request_timeout, connect=settings.connect_timeout
         )
+        headers = OllamaClient._build_headers(backend)
         try:
             session = await OllamaClient._get_session()
-            async with session.post(url, json=payload, proxy=proxy, timeout=timeout) as resp:
+            async with session.post(url, json=payload, proxy=proxy, timeout=timeout, headers=headers) as resp:
                 if resp.status != 200:
                     text = await resp.text()
                     raise Exception(f"HTTP {resp.status}: {text[:200]}")
