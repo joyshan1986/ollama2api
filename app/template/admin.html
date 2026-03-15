@@ -197,11 +197,11 @@
         <div class="stat-card"><div class="stat-label">已启用</div><div class="stat-value c-blue" id="bkEnabled">-</div></div>
         <div class="stat-card"><div class="stat-label">可用模型</div><div class="stat-value c-purple" id="bkModels">-</div></div>
       </div>
-      <div class="stats-grid sg4">
-        <div class="stat-card"><div class="stat-label">glm-4.7</div><div class="stat-value"><span class="c-green" id="mdGlm47Ok">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdGlm47Fail">0</span></div></div>
-        <div class="stat-card"><div class="stat-label">kimi-k2.5</div><div class="stat-value"><span class="c-green" id="mdKimiOk">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdKimiFail">0</span></div></div>
-        <div class="stat-card"><div class="stat-label">gemini-3-flash-preview</div><div class="stat-value"><span class="c-green" id="mdGeminiOk">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdGeminiFail">0</span></div></div>
+      <div class="stats-grid sg4" id="mdStatsGrid">
         <div class="stat-card"><div class="stat-label">glm-5</div><div class="stat-value"><span class="c-green" id="mdGlm5Ok">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdGlm5Fail">0</span></div></div>
+        <div class="stat-card"><div class="stat-label">kimi-k2.5</div><div class="stat-value"><span class="c-green" id="mdKimiOk">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdKimiFail">0</span></div></div>
+        <div class="stat-card"><div class="stat-label">minimax-m2.5</div><div class="stat-value"><span class="c-green" id="mdMinimaxOk">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdMinimaxFail">0</span></div></div>
+        <div class="stat-card"><div class="stat-label">deepseek-v3.2</div><div class="stat-value"><span class="c-green" id="mdDeepseekOk">0</span><span class="c-muted" style="font-size:14px;"> / </span><span class="c-red" id="mdDeepseekFail">0</span></div></div>
       </div>
       <div class="panel">
         <div class="panel-header">
@@ -247,9 +247,6 @@
       <div class="panel chat-container">
         <div class="chat-toolbar">
           <select id="aiModel">
-            <option value="glm-4.7">glm-4.7</option>
-            <option value="kimi-k2.5">kimi-k2.5</option>
-            <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
             <option value="glm-5">glm-5</option>
           </select>
           <div style="display:flex;gap:4px;margin-left:8px;flex-wrap:wrap;">
@@ -513,9 +510,9 @@
   <div id="addBkModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-title">添加后端节点</div>
+      <div class="modal-field"><label>后端类型</label><select id="addBkType" class="input input-lg" style="width:100%;" onchange="onBkTypeChange()"><option value="local" selected>自托管 (local)</option><option value="cloud">Ollama Cloud (cloud)</option></select></div>
       <div class="modal-field"><label>IP 地址（每行一个）</label><textarea id="addBkIps" rows="4" placeholder="192.168.1.1&#10;192.168.1.2" class="input" style="width:100%;"></textarea></div>
       <div class="modal-field"><label>端口</label><input id="addBkPort" type="number" value="11434" class="input input-lg" style="width:100%;"></div>
-      <div class="modal-field"><label>后端类型</label><select id="addBkType" class="input input-lg" style="width:100%;"><option value="local" selected>自托管 (local)</option><option value="cloud">Ollama Cloud (cloud)</option></select></div>
       <div class="modal-field"><label>Scheme</label><select id="addBkScheme" class="input input-lg" style="width:100%;"><option value="http" selected>http</option><option value="https">https</option></select></div>
       <div class="modal-field"><label>API Key</label><input id="addBkApiKey" type="text" class="input input-lg" style="width:100%;" placeholder="留空表示无需鉴权"></div>
       <div class="modal-actions">
@@ -636,7 +633,7 @@
       document.getElementById('bkEnabled').textContent = s.enabled ?? '-';
       document.getElementById('bkModels').textContent = (s.models || []).length;
       // 模型汇总统计
-      const mdMap = {'glm-4.7':{ok:0,fail:0},'kimi-k2.5':{ok:0,fail:0},'gemini-3-flash-preview':{ok:0,fail:0},'glm-5':{ok:0,fail:0}};
+      const mdMap = {'glm-5':{ok:0,fail:0},'kimi-k2.5':{ok:0,fail:0},'minimax-m2.5':{ok:0,fail:0},'deepseek-v3.2':{ok:0,fail:0}};
       for (const b of backendsData) {
         const allShort = new Set((b.models||[]).map(x=>x.split(':')[0]));
         const failShort = new Set((b.failed_models||[]).map(x=>x.split(':')[0]));
@@ -645,14 +642,16 @@
           else if (allShort.has(m)) mdMap[m].ok++;
         }
       }
-      document.getElementById('mdGlm47Ok').textContent = mdMap['glm-4.7'].ok;
-      document.getElementById('mdGlm47Fail').textContent = mdMap['glm-4.7'].fail;
-      document.getElementById('mdKimiOk').textContent = mdMap['kimi-k2.5'].ok;
-      document.getElementById('mdKimiFail').textContent = mdMap['kimi-k2.5'].fail;
-      document.getElementById('mdGeminiOk').textContent = mdMap['gemini-3-flash-preview'].ok;
-      document.getElementById('mdGeminiFail').textContent = mdMap['gemini-3-flash-preview'].fail;
       document.getElementById('mdGlm5Ok').textContent = mdMap['glm-5'].ok;
       document.getElementById('mdGlm5Fail').textContent = mdMap['glm-5'].fail;
+      document.getElementById('mdKimiOk').textContent = mdMap['kimi-k2.5'].ok;
+      document.getElementById('mdKimiFail').textContent = mdMap['kimi-k2.5'].fail;
+      document.getElementById('mdMinimaxOk').textContent = mdMap['minimax-m2.5'].ok;
+      document.getElementById('mdMinimaxFail').textContent = mdMap['minimax-m2.5'].fail;
+      document.getElementById('mdDeepseekOk').textContent = mdMap['deepseek-v3.2'].ok;
+      document.getElementById('mdDeepseekFail').textContent = mdMap['deepseek-v3.2'].fail;
+      // Also refresh AI model picker
+      refreshAiModelPicker(backendsData);
       renderBackends();
     }
 
@@ -673,7 +672,7 @@
       tb.innerHTML = paged.map(b => {
         const st = b.status === 'online' ? 'green' : b.status === 'offline' ? 'red' : b.status === 'cooldown' ? 'yellow' : 'gray';
         const failed = new Set((b.failed_models || []).map(x => x.split(':')[0]));
-        const targetModels = ['glm-4.7','kimi-k2.5','gemini-3-flash-preview','glm-5'];
+        const targetModels = ['glm-5','kimi-k2.5','minimax-m2.5','deepseek-v3.2'];
         const allShort = new Set((b.models || []).map(x => x.split(':')[0]));
         const models = '<div class="model-grid">' + targetModels.map(m => {
           const cls = failed.has(m) ? 'fail' : allShort.has(m) ? 'ok' : 'none';
@@ -700,6 +699,39 @@
       }).join('');
     }
 
+    function onBkTypeChange() {
+      const isCloud = document.getElementById('addBkType').value === 'cloud';
+      const ips = document.getElementById('addBkIps');
+      const port = document.getElementById('addBkPort');
+      const scheme = document.getElementById('addBkScheme');
+      if (isCloud) {
+        ips.value = 'ollama.com'; ips.readOnly = true; ips.style.opacity = '0.5';
+        port.value = 443; port.readOnly = true; port.style.opacity = '0.5';
+        scheme.value = 'https'; scheme.disabled = true; scheme.style.opacity = '0.5';
+        document.getElementById('addBkApiKey').focus();
+      } else {
+        ips.value = ''; ips.readOnly = false; ips.style.opacity = '1';
+        port.value = 11434; port.readOnly = false; port.style.opacity = '1';
+        scheme.value = 'http'; scheme.disabled = false; scheme.style.opacity = '1';
+      }
+    }
+
+    function refreshAiModelPicker(backends) {
+      const sel = document.getElementById('aiModel');
+      const prev = sel.value;
+      const allModels = new Set();
+      for (const b of backends) {
+        const failSet = new Set((b.failed_models||[]).map(x=>x.split(':')[0]));
+        for (const m of (b.models||[])) {
+          if (!failSet.has(m.split(':')[0])) allModels.add(m.split(':')[0]);
+        }
+      }
+      const sorted = [...allModels].sort();
+      if (!sorted.length) return;
+      sel.innerHTML = sorted.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+      if (sorted.includes(prev)) sel.value = prev;
+    }
+
     async function addBackends() {
       const ips = document.getElementById('addBkIps').value.trim();
       const port = parseInt(document.getElementById('addBkPort').value) || 11434;
@@ -723,7 +755,7 @@
     }
 
     async function cleanUselessBackends() {
-      const targetModels = ['glm-4.7','kimi-k2.5','gemini-3-flash-preview','glm-5'];
+      const targetModels = ['glm-5','kimi-k2.5','minimax-m2.5','deepseek-v3.2'];
       const useless = backendsData.filter(b => {
         const allShort = new Set((b.models||[]).map(x=>x.split(':')[0]));
         const failShort = new Set((b.failed_models||[]).map(x=>x.split(':')[0]));
@@ -1082,7 +1114,7 @@
       loadRecommend();
     }
 
-    const TARGET_MODELS = ['glm-4.7', 'kimi-k2.5', 'gemini-3-flash-preview', 'glm-5'];
+    const TARGET_MODELS = ['glm-5', 'kimi-k2.5', 'minimax-m2.5', 'deepseek-v3.2'];
     let expandedHistory = {};
 
     function renderScanHistory() {
