@@ -128,7 +128,10 @@ class OllamaClient:
     async def _normal_chat(
         backend: BackendInfo, request: ChatCompletionRequest
     ) -> ChatCompletionResponse:
-        url = f"{backend.base_url}/v1/chat/completions"
+        if backend.backend_type == "cloud":
+            url = f"{backend.base_url}/api/chat"
+        else:
+            url = f"{backend.base_url}/v1/chat/completions"
         payload = OllamaClient._build_payload(request)
         payload["stream"] = False
         payload["model"] = backend.resolve_model(request.model)
@@ -149,6 +152,16 @@ class OllamaClient:
 
         await backend_manager.record_success(backend, latency)
 
+        # Cloud (Ollama native) → convert to OpenAI format
+        if backend.backend_type == "cloud":
+            content = data.get("message", {}).get("content", "")
+            return ChatCompletionResponse(
+                id=f"chatcmpl-{uuid.uuid4().hex[:12]}",
+                model=request.model,
+                choices=[Choice(message=ChoiceMessage(content=content), finish_reason="stop")],
+            )
+
+        # Local (OpenAI compat)
         if "choices" in data:
             return ChatCompletionResponse(
                 id=data.get("id", f"chatcmpl-{uuid.uuid4().hex[:12]}"),
@@ -179,7 +192,10 @@ class OllamaClient:
         backend: BackendInfo, request: ChatCompletionRequest
     ) -> AsyncGenerator[str, None]:
         """流式聊天 - 直接作为 async generator 使用"""
-        url = f"{backend.base_url}/v1/chat/completions"
+        if backend.backend_type == "cloud":
+            url = f"{backend.base_url}/api/chat"
+        else:
+            url = f"{backend.base_url}/v1/chat/completions"
         payload = OllamaClient._build_payload(request)
         payload["stream"] = True
         payload["model"] = backend.resolve_model(request.model)
@@ -208,6 +224,26 @@ class OllamaClient:
                         line = line.decode("utf-8", errors="ignore").strip()
                         if not line:
                             continue
+
+                        # Cloud (Ollama native): each line is a JSON object
+                        if backend.backend_type == "cloud":
+                            try:
+                                chunk_data = json.loads(line)
+                            except json.JSONDecodeError:
+                                continue
+                            if chunk_data.get("done"):
+                                break
+                            content = chunk_data.get("message", {}).get("content", "")
+                            if content:
+                                chunk = ChatCompletionChunk(
+                                    id=completion_id,
+                                    model=request.model,
+                                    choices=[ChunkChoice(delta=DeltaMessage(content=content))],
+                                )
+                                yield f"data: {chunk.model_dump_json()}\n\n"
+                            continue
+
+                        # Local (OpenAI SSE): lines prefixed with "data: "
                         if line.startswith("data: "):
                             line = line[6:]
                         if line == "[DONE]":

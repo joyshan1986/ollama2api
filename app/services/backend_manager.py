@@ -29,6 +29,7 @@ class BackendInfo:
     created_at: float = field(default_factory=time.time)
     api_key: Optional[str] = None
     scheme: str = "http"
+    backend_type: str = "local"  # "local" (OpenAI compat) or "cloud" (Ollama native)
 
     @property
     def node_key(self) -> str:
@@ -114,7 +115,8 @@ class BackendManager:
 
     async def add_backends_batch(self, ips: List[str], port: int = None,
                                 api_key: Optional[str] = None,
-                                scheme: str = "http") -> dict:
+                                scheme: str = "http",
+                                backend_type: str = "local") -> dict:
         port = port or settings.default_ollama_port
         added, skipped = 0, 0
         async with self._lock:
@@ -122,7 +124,7 @@ class BackendManager:
                 ip = ip.strip()
                 if not ip:
                     continue
-                b = BackendInfo(ip=ip, port=port, api_key=api_key, scheme=scheme)
+                b = BackendInfo(ip=ip, port=port, api_key=api_key, scheme=scheme, backend_type=backend_type)
                 key = b.node_key
                 if key in self._backends:
                     skipped += 1

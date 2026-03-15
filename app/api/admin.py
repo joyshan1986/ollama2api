@@ -63,6 +63,7 @@ class AddBackendsRequest(BaseModel):
     port: Optional[int] = None
     api_key: Optional[str] = None
     scheme: str = "http"
+    backend_type: str = "local"
 
 
 class UpdateBackendRequest(BaseModel):
@@ -81,7 +82,8 @@ async def list_backends(session=Depends(require_admin)):
 async def add_backends(body: AddBackendsRequest, session=Depends(require_admin)):
     ips = [ip.strip() for ip in body.ips.replace(",", "\n").split("\n") if ip.strip()]
     result = await backend_manager.add_backends_batch(
-        ips, body.port, api_key=body.api_key, scheme=body.scheme
+        ips, body.port, api_key=body.api_key, scheme=body.scheme,
+        backend_type=body.backend_type,
     )
     return {"success": True, **result}
 
