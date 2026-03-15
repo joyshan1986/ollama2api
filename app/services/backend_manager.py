@@ -181,8 +181,15 @@ class BackendManager:
                         b.consecutive_failures = 0
                     else:
                         continue
-                if model and b.models and not any(m.split(":")[0] == model or m == model for m in b.models):
-                    continue
+                if model and b.models:
+                    if b.backend_type == "cloud":
+                        # Cloud: match against the full model list from /api/tags
+                        if not any(m == model or m.split(":")[0] == model for m in b.models):
+                            continue
+                    else:
+                        # Local: existing logic
+                        if not any(m.split(":")[0] == model or m == model for m in b.models):
+                            continue
                 if model and any(m.split(":")[0] == model or m == model for m in b.failed_models):
                     continue
                 candidates.append((key, b))

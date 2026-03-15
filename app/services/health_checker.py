@@ -92,30 +92,53 @@ class HealthChecker:
         except Exception:
             await backend_manager.update_health(b, status="offline")
 
+    # Representative models to probe cloud connectivity
+    CLOUD_PROBE_MODELS = ["glm-5", "kimi-k2.5", "minimax-m2.5", "qwen3.5"]
+
     async def _check_cloud_backend(self, b, headers: dict):
-        """Cloud 后端：直接用 /api/chat 逐个测试 TARGET_MODELS"""
-        timeout = aiohttp.ClientTimeout(total=30, connect=5)
-        url = f"{b.base_url}/api/chat"
+        """Cloud 后端：先 /api/tags 获取完整模型列表，再抽样测试连通性"""
         session = self._session
         if not session:
             return
-        valid_models = []
-        failed_models = []
         start = time.time()
-        for model in TARGET_MODELS:
+
+        # Step 1: GET /api/tags to discover all available models
+        valid_models = []
+        tags_url = f"{b.base_url}/api/tags"
+        try:
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
+            async with session.get(tags_url, timeout=timeout, headers=headers) as resp:
+                if resp.status != 200:
+                    await backend_manager.update_health(b, status="offline")
+                    return
+                data = await resp.json()
+                valid_models = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+        except Exception:
+            await backend_manager.update_health(b, status="offline")
+            return
+
+        if not valid_models:
+            await backend_manager.update_health(b, status="offline")
+            return
+
+        # Step 2: Probe a few representative models via /api/chat
+        failed_models = []
+        chat_url = f"{b.base_url}/api/chat"
+        probe_timeout = aiohttp.ClientTimeout(total=30, connect=5)
+        to_probe = [m for m in valid_models if m.split(":")[0] in self.CLOUD_PROBE_MODELS]
+        for model in to_probe:
             try:
                 payload = {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 50, "stream": False}
-                async with session.post(url, json=payload, timeout=timeout, headers=headers) as resp:
-                    if resp.status == 200:
-                        valid_models.append(model)
-                    else:
+                async with session.post(chat_url, json=payload, timeout=probe_timeout, headers=headers) as resp:
+                    if resp.status != 200:
                         failed_models.append(model)
-                        logger.info(f"Cloud model test failed: {b.ip} / {model} -> HTTP {resp.status}")
+                        logger.info(f"Cloud probe failed: {b.ip} / {model} -> HTTP {resp.status}")
             except Exception as e:
                 failed_models.append(model)
-                logger.info(f"Cloud model test failed: {b.ip} / {model} -> {e}")
+                logger.info(f"Cloud probe failed: {b.ip} / {model} -> {e}")
+
         latency = (time.time() - start) * 1000
-        status = "online" if valid_models else "offline"
+        status = "offline" if to_probe and len(failed_models) == len(to_probe) else "online"
         await backend_manager.update_health(
             b, models=valid_models, failed_models=failed_models,
             status=status, latency_ms=latency,
