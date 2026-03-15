@@ -89,7 +89,7 @@ class HealthChecker:
         failed = []
         timeout = aiohttp.ClientTimeout(total=30, connect=5)
         url = f"{b.base_url}/v1/chat/completions"
-        payload_base = {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False}
+        payload_base = {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 50, "stream": False}
         session = self._session
         if not session:
             return to_test

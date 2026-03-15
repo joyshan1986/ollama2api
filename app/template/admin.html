@@ -515,6 +515,8 @@
       <div class="modal-title">添加后端节点</div>
       <div class="modal-field"><label>IP 地址（每行一个）</label><textarea id="addBkIps" rows="4" placeholder="192.168.1.1&#10;192.168.1.2" class="input" style="width:100%;"></textarea></div>
       <div class="modal-field"><label>端口</label><input id="addBkPort" type="number" value="11434" class="input input-lg" style="width:100%;"></div>
+      <div class="modal-field"><label>Scheme</label><select id="addBkScheme" class="input input-lg" style="width:100%;"><option value="http" selected>http</option><option value="https">https</option></select></div>
+      <div class="modal-field"><label>API Key</label><input id="addBkApiKey" type="text" class="input input-lg" style="width:100%;" placeholder="留空表示无需鉴权"></div>
       <div class="modal-actions">
         <button onclick="closeModal('addBkModal')" class="btn btn-ghost">取消</button>
         <button onclick="addBackends()" class="btn btn-white">添加</button>
@@ -700,9 +702,11 @@
     async function addBackends() {
       const ips = document.getElementById('addBkIps').value.trim();
       const port = parseInt(document.getElementById('addBkPort').value) || 11434;
+      const scheme = document.getElementById('addBkScheme').value;
+      const api_key = document.getElementById('addBkApiKey').value.trim() || null;
       if (!ips) return;
-      const d = await api('/admin/api/backends', { method: 'POST', body: { ips, port } });
-      if (d?.success) { showToast(`添加 ${d.added} 个，跳过 ${d.skipped} 个`); closeModal('addBkModal'); document.getElementById('addBkIps').value = ''; loadBackends(); }
+      const d = await api('/admin/api/backends', { method: 'POST', body: { ips, port, scheme, api_key } });
+      if (d?.success) { showToast(`添加 ${d.added} 个，跳过 ${d.skipped} 个`); closeModal('addBkModal'); document.getElementById('addBkIps').value = ''; document.getElementById('addBkApiKey').value = ''; loadBackends(); }
     }
 
     async function toggleBackend(key, enabled) {
